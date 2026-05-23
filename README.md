@@ -95,7 +95,7 @@ aero-voyage/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/aero-voyage.git
+git clone https://github.com/satyam-1605/aero-voyage.git
 cd aero-voyage
 ```
 
