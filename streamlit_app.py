@@ -42,12 +42,10 @@ st.markdown("""
     /* Global Typography & Hide Streamlit Defaults */
     html, body, .stMarkdown, p, label {
         font-family: 'DM Sans', sans-serif !important;
-        color: #B8D4EE;
+        color: #B8D4EE !important;
     }
-    div:not([class*="MaterialSymbols"]):not([class*="material-icons"]):not(.notranslate),
-    span:not([class*="MaterialSymbols"]):not([class*="material-icons"]):not(.notranslate),
-    [class*="css"]:not([class*="MaterialSymbols"]):not([class*="material-icons"]):not(.notranslate) {
-        font-family: 'DM Sans', sans-serif !important;
+    div, span, [class*="css"] {
+        font-family: 'DM Sans', sans-serif;
         color: #B8D4EE;
     }
     h1, h2, h3, h4, h5, h6 {

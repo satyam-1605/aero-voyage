@@ -74,3 +74,6 @@ desktop.ini
 *.tmp
 *.bak
 *.swp
+
+# Travel Plans
+saved_plans/
