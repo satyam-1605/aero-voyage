@@ -254,10 +254,14 @@ def flight_agent(state: TravelState) -> dict:
             
             if dep_info:
                 dep_ap = dep_info[0].get("airport", {})
-                airport_lines.append(f"Departure Airport: {dep_ap.get('name')} ({dep_ap.get('id')}) in {dep_info[0].get('city')}, {dep_info[0].get('country')}")
+                dep_id = dep_ap.get("id", "")
+                dep_id_display = f" ({dep_id})" if dep_id and not dep_id.startswith("/") else ""
+                airport_lines.append(f"Departure Airport: {dep_ap.get('name')}{dep_id_display} in {dep_info[0].get('city')}, {dep_info[0].get('country')}")
             if arr_info:
                 arr_ap = arr_info[0].get("airport", {})
-                airport_lines.append(f"Arrival Airport: {arr_ap.get('name')} ({arr_ap.get('id')}) in {arr_info[0].get('city')}, {arr_info[0].get('country')}")
+                arr_id = arr_ap.get("id", "")
+                arr_id_display = f" ({arr_id})" if arr_id and not arr_id.startswith("/") else ""
+                airport_lines.append(f"Arrival Airport: {arr_ap.get('name')}{arr_id_display} in {arr_info[0].get('city')}, {arr_info[0].get('country')}")
                 
         airport_results = "\n".join(airport_lines) if airport_lines else "No detailed airport information found."
         
@@ -273,12 +277,37 @@ def flight_agent(state: TravelState) -> dict:
 
 
 def hotel_agent(state: TravelState) -> dict:
-    """Searches for hotels (Runs in parallel with Flight Agent)."""
+    """Searches for hotels and formats the top 5 hotels with details and prices using LLM."""
     query = f"Best hotels in {state['destination_city']} under ₹{state['hotel_budget']} total budget"
+    llm_calls = state.get("llm_calls", 0)
     try:
-        return {"hotel_results": tavily_search(query)}
+        raw_results = tavily_search(query)
+        
+        prompt = f"""
+        Analyze the following hotel search results in {state['destination_city']} under a total budget of ₹{state['hotel_budget']:,}:
+        
+        {raw_results}
+        
+        Extract and present the top 5 specific hotels that fit within this budget.
+        Format your response as a clean Markdown list.
+        For each hotel, provide:
+        1. **[Hotel Name]** (with a link to their website or the source URL if available)
+        2. **Price**: Estimated price per night in INR
+        3. **Location & Key Details**: 2-3 sentences describing the hotel's location, amenities, and why it is a great choice.
+        
+        Do not return generic articles or search result summaries. Return exactly 5 concrete hotel listings.
+        """
+        response = llm.invoke([HumanMessage(content=prompt)])
+        llm_calls += 1
+        return {
+            "hotel_results": response.content,
+            "llm_calls": llm_calls
+        }
     except Exception as e:
-        return {"hotel_results": f"Hotel API Error: {e}"}
+        return {
+            "hotel_results": f"Hotel API Error: {e}",
+            "llm_calls": llm_calls
+        }
 
 
 def itinerary_agent(state: TravelState) -> dict:

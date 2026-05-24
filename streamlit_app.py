@@ -6,6 +6,8 @@ import re
 from datetime import datetime
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import Command
+from langgraph.errors import GraphInterrupt
+
 
 # Set page config at the very beginning of the script
 st.set_page_config(
@@ -38,7 +40,13 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
 
     /* Global Typography & Hide Streamlit Defaults */
-    html, body, [class*="css"], .stMarkdown, p, div, span, label {
+    html, body, .stMarkdown, p, label {
+        font-family: 'DM Sans', sans-serif !important;
+        color: #B8D4EE;
+    }
+    div:not([class*="MaterialSymbols"]):not([class*="material-icons"]):not(.notranslate),
+    span:not([class*="MaterialSymbols"]):not([class*="material-icons"]):not(.notranslate),
+    [class*="css"]:not([class*="MaterialSymbols"]):not([class*="material-icons"]):not(.notranslate) {
         font-family: 'DM Sans', sans-serif !important;
         color: #B8D4EE;
     }
@@ -47,9 +55,55 @@ st.markdown("""
         color: #E8F4FF !important;
         font-weight: 700;
     }
+    .stMarkdown h1 { font-size: 1.5rem !important; margin-top: 12px !important; margin-bottom: 8px !important; }
+    .stMarkdown h2 { font-size: 1.35rem !important; margin-top: 12px !important; margin-bottom: 8px !important; }
+    .stMarkdown h3 { font-size: 1.2rem !important; margin-top: 10px !important; margin-bottom: 6px !important; }
+    .stMarkdown h4 { font-size: 1.1rem !important; margin-top: 8px !important; margin-bottom: 4px !important; }
+    .stMarkdown h5 { font-size: 1.0rem !important; }
+    .stMarkdown h6 { font-size: 0.95rem !important; }
+    .stMarkdown p { font-size: 0.92rem !important; line-height: 1.6 !important; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+    }
+    /* Hide Deploy button but keep toolbar container visible to avoid hiding expand/collapse toggle */
+    button[data-testid="stDeployButton"],
+    [data-testid="stConnectionStatus"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    /* Guarantee visibility of the sidebar toggle wrappers and buttons */
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"],
+    button[data-testid="stBaseButton-headerNoPadding"],
+    [data-testid="stHeader"] button {
+        visibility: visible !important;
+        display: inline-flex !important;
+        opacity: 1 !important;
+    }
+    /* Style the sidebar toggle buttons to match our premium theme */
+    [data-testid="collapsedControl"] button,
+    button[data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapseButton"] button,
+    button[data-testid="stBaseButton-headerNoPadding"] {
+        visibility: visible !important;
+        color: #3B82F6 !important;
+        background-color: rgba(15, 30, 53, 0.8) !important;
+        border: 1px solid rgba(59, 130, 246, 0.45) !important;
+        border-radius: 8px !important;
+        margin: 10px !important;
+        padding: 5px 10px !important;
+        transition: all 0.25s ease !important;
+        z-index: 999999 !important;
+    }
+    [data-testid="collapsedControl"] button:hover,
+    button[data-testid="stSidebarCollapseButton"]:hover,
+    [data-testid="stSidebarCollapseButton"] button:hover,
+    button[data-testid="stBaseButton-headerNoPadding"]:hover {
+        background-color: rgba(59, 130, 246, 0.2) !important;
+        border-color: #3B82F6 !important;
+    }
 
     .stApp {
         background-color: #05080F !important;
@@ -654,7 +708,7 @@ st.markdown("""
 
     /* ── Destination Card Columns ── */
     /* Remove global card styling from columns that contain a .dest-card-wrapper */
-    div[data-testid="stColumn"]:has(.dest-card-wrapper) {
+    div[data-testid="column"]:has(.dest-card-wrapper) {
         background-color: transparent !important;
         border: none !important;
         border-radius: 0 !important;
@@ -665,78 +719,6 @@ st.markdown("""
         position: relative !important;
     }
 
-    /* Make the vertical block inside a dest column relative so the button can be absolutely positioned */
-    div[data-testid="stColumn"]:has(.dest-card-wrapper) > div {
-        position: relative !important;
-    }
-
-    /* Overlay the transparent Streamlit button exactly over the HTML image card */
-    div[data-testid="stColumn"]:has(.dest-card-wrapper) [data-testid="stButton"] {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        height: 120px !important;
-        z-index: 10 !important;
-    }
-    div[data-testid="stColumn"]:has(.dest-card-wrapper) [data-testid="stButton"] button {
-        height: 120px !important;
-        background: transparent !important;
-        border: 1px solid transparent !important;
-        color: transparent !important;
-        border-radius: 14px !important;
-        cursor: pointer !important;
-        transition: all 0.25s ease !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        width: 100% !important;
-    }
-    div[data-testid="stColumn"]:has(.dest-card-wrapper) [data-testid="stButton"] button:hover {
-        border-color: #3B82F6 !important;
-        box-shadow: 0 0 15px rgba(59, 130, 246, 0.3) !important;
-        background: transparent !important;
-    }
-    div[data-testid="stColumn"]:has(.dest-card-wrapper) [data-testid="stButton"] button:focus {
-        border-color: #3B82F6 !important;
-        box-shadow: none !important;
-        background: transparent !important;
-        outline: none !important;
-    }
-
-    /* ── Prompt Chip Buttons ── */
-    /* Target chip buttons by aria-label substring (all contain '3 days' or '2L') */
-    button[aria-label*="days"],
-    button[aria-label*="2L"] {
-        background-color: #0F1E35 !important;
-        border: 1px solid #1E3A5F !important;
-        border-radius: 24px !important;
-        padding: 8px 16px !important;
-        font-size: 0.82rem !important;
-        color: #B8D4EE !important;
-        height: auto !important;
-        width: 100% !important;
-        line-height: 1.4 !important;
-        transition: all 0.25s ease !important;
-        font-family: 'DM Sans', sans-serif !important;
-        font-weight: 500 !important;
-    }
-    button[aria-label*="days"]:hover,
-    button[aria-label*="2L"]:hover {
-        background-color: rgba(59, 130, 246, 0.15) !important;
-        border-color: #3B82F6 !important;
-        color: #E8F4FF !important;
-        border-left: 3px solid #3B82F6 !important;
-    }
-
-    /* Remove card styling from the chip columns */
-    div[data-testid="stColumn"]:has(button[aria-label*="days"]),
-    div[data-testid="stColumn"]:has(button[aria-label*="2L"]) {
-        background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        padding: 6px 4px !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -803,6 +785,11 @@ if "stepper_states" not in st.session_state:
         "itinerary_agent": "pending",
         "final_agent": "pending"
     }
+
+# Initialize session state for text area if not present
+if "user_query_input" not in st.session_state:
+    st.session_state.user_query_input = ""
+
 
 # Sync stepper states if itinerary was already generated in the loaded thread
 if itinerary:
@@ -982,68 +969,45 @@ if "prefill" in st.query_params:
     city_name = st.query_params["prefill"]
     for city, label, img, prompt in destinations_info:
         if city.lower() == city_name.lower():
-            st.session_state.prefilled_prompt = prompt
+            st.session_state.user_query_input = prompt
             break
-    st.query_params.pop("prefill")
-
-# Prompt chip query param parser
-prompts_info = [
-    ("Kyoto 3 days under 2L", "Plan a 3-day trip to Kyoto from Delhi under 2 lakhs starting 1 June"),
-    ("Paris romantic 3 days", "Plan a 3-day romantic trip to Paris from Mumbai under 3 lakhs starting 10 June"),
-    ("Bangkok budget 3 days", "Plan a 3-day trip to Bangkok from Kolkata under 1 lakh starting 5 June")
-]
-
-if "prefill_prompt" in st.query_params:
-    p_idx = int(st.query_params["prefill_prompt"])
-    if 0 <= p_idx < len(prompts_info):
-        st.session_state.prefilled_prompt = prompts_info[p_idx][1]
-    st.query_params.pop("prefill_prompt")
+    del st.query_params["prefill"]
 
 # Destination cards row — HTML card for visuals + transparent overlay button for clicks
 col_list = st.columns(5)
 for col, (city, label, img_url, prompt_text) in zip(col_list, destinations_info):
     with col:
-        # Render the visual HTML card (background image, gradient, pill label)
+        # Render the visual HTML card (background image, gradient)
         st.markdown(
             f'<div class="dest-card-wrapper">'
             f'<div class="dest-card" style="background-image: url(\'{img_url}\');">'
             f'<div class="dest-overlay">'
-            f'<div class="dest-pill">{label}</div>'
             f'</div>'
             f'</div>'
             f'</div>',
             unsafe_allow_html=True
         )
-        # Transparent button absolutely overlaid via CSS — handles the click
+        # Button below the card — handles the click
         if st.button(label, key=f"dest_{city.lower()}", use_container_width=True):
-            st.session_state.prefilled_prompt = prompt_text
+            st.session_state.user_query_input = prompt_text
             st.rerun()
 
 st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
 
 # 3. Form Input Card (Styled via div[data-testid="stForm"])
-default_prompt = st.session_state.get("prefilled_prompt", "")
-# Clear it immediately so it doesn't lock input value on reruns
-if "prefilled_prompt" in st.session_state:
-    del st.session_state["prefilled_prompt"]
+# The prefilled prompt logic is handled directly in st.session_state.user_query_input
 
-# Quick prompt chips MUST be OUTSIDE st.form() — st.button() is not allowed inside forms
+# Section Header
 st.markdown("<div class='input-label'>📍 Describe Your Trip</div>", unsafe_allow_html=True)
-col_chips = st.columns([1, 1, 1, 2])
-for idx, (label, text) in enumerate(prompts_info):
-    with col_chips[idx]:
-        if st.button(label, key=f"chip_{idx}", use_container_width=True):
-            st.session_state.prefilled_prompt = text
-            st.rerun()
 
 with st.form("trip_form"):
     # Input Text Area (styled via CSS override)
     user_query = st.text_area(
         label="Trip details",
         label_visibility="collapsed",
-        value=default_prompt, 
         placeholder="e.g. Plan a trip from Mumbai to Tokyo for 3 days under 3 lakhs from 1 June to 4 June...", 
-        height=140
+        height=140,
+        key="user_query_input"
     )
     
     # Submit Button (styled via stForm button CSS)
@@ -1086,7 +1050,11 @@ def draw_agent_cards():
             if node_id == "query_parser":
                 output_text = f"Parsed Origin: <b>{state_values.get('origin_city', 'N/A').title()}</b> | Destination: <b>{state_values.get('destination_city', 'N/A').title()}</b> | Start Date: <b>{state_values.get('travel_date', 'N/A')}</b> | Budget: <b>₹{state_values.get('budget', 0):,}</b>"
             elif node_id == "iata_resolver":
-                output_text = f"Resolved Airport Codes: <b>{state_values.get('origin_iata', 'N/A')}</b> ➔ <b>{state_values.get('destination_iata', 'N/A')}</b>"
+                origin_code = state_values.get('origin_iata', 'N/A')
+                dest_code = state_values.get('destination_iata', 'N/A')
+                origin_display = state_values.get('origin_city', 'N/A').title() if origin_code.startswith("/") else origin_code
+                dest_display = state_values.get('destination_city', 'N/A').title() if dest_code.startswith("/") else dest_code
+                output_text = f"Resolved Airport Codes: <b>{origin_display}</b> ➔ <b>{dest_display}</b>"
             elif node_id == "flight_agent":
                 output_text = state_values.get("flight_results", "Flights resolved successfully.").split("\n")[0]
             elif node_id == "hotel_agent":
@@ -1164,11 +1132,14 @@ if submit_clicked and user_query.strip():
         st.session_state.pipeline_status = "complete"
         st.rerun()
         
+    except GraphInterrupt:
+        snapshot = app.get_state(config)
+        st.rerun()
     except Exception as e:
         st.error(f"Execution pipeline interrupted: {e}")
 
 # Interrupt handling (Human-in-the-loop input resumes)
-is_interrupted = bool(snapshot.next and snapshot.tasks[0].interrupts)
+is_interrupted = bool(snapshot.next and snapshot.tasks and snapshot.tasks[0].interrupts)
 if is_interrupted:
     question = snapshot.tasks[0].interrupts[0].value
     st.markdown(
@@ -1225,6 +1196,9 @@ if is_interrupted:
                             st.markdown(draw_agent_cards(), unsafe_allow_html=True)
                             
                 st.session_state.pipeline_status = "complete"
+                st.rerun()
+            except GraphInterrupt:
+                snapshot = app.get_state(config)
                 st.rerun()
             except Exception as e:
                 st.error(f"Execution pipeline interrupted: {e}")
@@ -1405,6 +1379,16 @@ if itinerary or state_values.get("flight_results") or state_values.get("hotel_re
             
         with col_d2:
             save_path = f"c:\\Users\\ssaty\\multi_agent_system\\saved_plans\\{st.session_state.thread_id}.md"
+            try:
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                with open(save_path, "w", encoding="utf-8") as f:
+                    f.write(itinerary)
+                save_status = "Saved"
+                save_color = "#10B981"
+            except Exception as e:
+                save_status = "Save Error"
+                save_color = "#ef4444"
+                
             st.markdown(
                 f'<div style="background-color: #04070D; border: 1px solid #0F1E35; border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between;">'
                 f'<span style="font-family: monospace; font-size: 0.8rem; color: #8AAEC8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">'
@@ -1412,7 +1396,7 @@ if itinerary or state_values.get("flight_results") or state_values.get("hotel_re
                 f'</span>'
                 f'<div style="display: flex; align-items: center;">'
                 f'<span class="blink-dot"></span>'
-                f'<span style="color: #10B981; font-size: 0.8rem; font-weight: 600;">Saved</span>'
+                f'<span style="color: {save_color}; font-size: 0.8rem; font-weight: 600;">{save_status}</span>'
                 f'</div>'
                 f'</div>',
                 unsafe_allow_html=True
